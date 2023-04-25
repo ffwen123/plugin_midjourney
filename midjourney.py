@@ -80,7 +80,10 @@ class Midjourney(Plugin):
                 params = {**self.slash_commands_data}
                 # params["prompt"] = params.get("prompt", "")
                 if prompt:
-                    params["prompt"] += f", {prompt}"
+                    if params.get("prompt", ""):
+                        params["prompt"] += f", {prompt}"
+                    else:
+                        params["prompt"] += f"{prompt}"
                 # if unused_keywords:
                 #     params["prompt"] += f", {', '.join(unused_keywords)}"
                 logger.info("[RP] params={}".format(params))
