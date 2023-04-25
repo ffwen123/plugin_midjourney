@@ -37,6 +37,7 @@ class Midjourney(Plugin):
                 self.call_back_url = config["call_back_url"]
                 self.headers = config["headers"]
                 self.default_params = config["defaults"]
+                self.rules = config["rules"]
                 self.slash_commands_data = config["slash_commands_data"]
                 self.mj_api_key = self.headers.get("Authorization", "")
                 if "你的API 密钥" in self.mj_api_key or not self.mj_api_key:
@@ -59,6 +60,7 @@ class Midjourney(Plugin):
         logger.info("[RP] image_query={}".format(e_context['context'].content))
         reply = Reply()
         try:
+            # user_id = e_context['context']["session_id"]
             content = e_context['context'].content[:]
             # 解析用户输入 如":cat"
             content = content.replace("，", ",").replace("：", ":")
@@ -68,13 +70,33 @@ class Midjourney(Plugin):
                 keywords = content
                 prompt = ""
             keywords = keywords.split()
-            if "help" in keywords or "帮助" in keywords or not prompt:
+            unused_keywords = []
+            if "help" in keywords or "帮助" in keywords:
                 reply.type = ReplyType.INFO
                 reply.content = self.get_help_text(verbose=True)
             else:
+                rule_params = {}
+                for keyword in keywords:
+                    matched = False
+                    for rule in self.rules:
+                        if keyword in rule["keywords"]:
+                            for key in rule["params"]:
+                                rule_params[key] = rule["params"][key]
+                            matched = True
+                            break  # 一个关键词只匹配一个规则
+                    if not matched:
+                        unused_keywords.append(keyword)
+                        logger.info("[RP] keyword not matched: %s, add to prompt" % keyword)
+                params = {**self.default_params, **rule_params}
+                params["prompt"] = params.get("prompt", "")
+                if prompt:
+                    params["prompt"] += f", {prompt}"
+                if unused_keywords:
+                    params["prompt"] += f", {', '.join(unused_keywords)}"
+                logger.info("[RP] params={}".format(params))
                 post_json = {**self.default_params, **{
-                    "ref": self.slash_commands_data.get("ref", "fast"),
-                    "msg": prompt if prompt else self.slash_commands_data.get("msg", "fast")
+                    "ref": self.slash_commands_data.get("ref", "relax"),
+                    "msg": params["prompt"]
                 }}
                 # 调用midjourney api来画图
                 api_data = requests.post(url=self.api_url, headers=self.headers, json=post_json, timeout=120.05)
@@ -127,12 +149,12 @@ class Midjourney(Plugin):
             return help_text
 
         help_text += f"使用方法:\n使用\"{trigger}:提示语\"的格式作画，如\"{trigger}:girl\"\n"
-        # help_text += "目前可用关键词：\n"
-        # for rule in self.rules:
-        #     keywords = [f"[{keyword}]" for keyword in rule['keywords']]
-        #     help_text += f"{','.join(keywords)}"
-        #     if "desc" in rule:
-        #         help_text += f"-{rule['desc']}\n"
-        #     else:
-        #         help_text += "\n"
+        help_text += "目前可用关键词：\n"
+        for rule in self.rules:
+            keywords = [f"[{keyword}]" for keyword in rule['keywords']]
+            help_text += f"{','.join(keywords)}"
+            if "desc" in rule:
+                help_text += f"-{rule['desc']}\n"
+            else:
+                help_text += "\n"
         return help_text
