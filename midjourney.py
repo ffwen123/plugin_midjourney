@@ -96,6 +96,7 @@ class Midjourney(Plugin):
                     params["prompt"] += f", {', '.join(unused_keywords)}"
                 logger.info("[RP] params={}".format(params))
                 post_json = {**self.default_params, **{
+                    "cmd": self.slash_commands_data.get("cmd", "imagine"),
                     "ref": self.slash_commands_data.get("ref", "relax"),
                     "msg": params["prompt"]
                 }}
