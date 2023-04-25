@@ -1,0 +1,34 @@
+{
+  "api_url": "Midjourney API URL",
+  "call_back_url": "Webhook的回调URL",
+  "headers": {
+    "Authorization": "Bearer <你的API 密钥>",
+    "Content-Type": "application/json"
+  },
+  "defaults": {
+    "ref": "目前支持[
+    "relax",
+    "fast",
+    "private",
+    "stealth"]",
+    "webhookOverride": "你的webhook URL，用来接收Midjourney API实际响应数据"
+  },
+  "slash_commands_data": {
+    "cmd": "imagine",
+    "msg": "你的prompt"
+  },
+  "button_data": {
+    "button": "目前支持[
+        "U1",
+        "U2",
+        "U3",
+        "U4",
+        "🔄",
+        "V1",
+        "V2",
+        "V3",
+        "V4"
+    ]",
+    "buttonMessageId": "buttonMessageId，在Midjourney API实际响应数据里"
+  }
+}
