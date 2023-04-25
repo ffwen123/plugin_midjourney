@@ -107,7 +107,7 @@ class Midjourney(Plugin):
                         if get_imageUrl.text == self.no_get_response:
                             out_time = time.time()
                             while get_imageUrl.text == self.no_get_response:
-                                if time.time() - out_time > 300:
+                                if time.time() - out_time > 600:
                                     break
                                 time.sleep(5)
                                 get_imageUrl = requests.get(url=self.call_back_url, params={"id": api_data.json().get("messageId")},
