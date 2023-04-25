@@ -108,7 +108,7 @@ class Midjourney(Plugin):
                 if api_data.status_code == 200:
                     # 调用Webhook URL的响应，来获取图片的URL
                     logger.info("[RP] api_data={}".format(api_data.json()))
-                    get_imageUrl = requests.get(url=self.call_back_url, data={"id": api_data.json().get("messageId")},
+                    get_imageUrl = requests.get(url=self.call_back_url, params={"id": api_data.json().get("messageId")},
                                                 timeout=30.05)
                     # Webhook URL的响应慢，没隔 3 秒获取一次，超时60秒判断没有结果
                     if get_imageUrl.status_code == 200:
@@ -117,11 +117,12 @@ class Midjourney(Plugin):
                             while get_imageUrl.text == self.no_get_response:
                                 if time.time() - out_time > 60:
                                     break
+                                print(time.time() - out_time, api_data.json().get("messageId"))
                                 time.sleep(3)
-                                get_imageUrl = requests.get(url=self.call_back_url, data={"id": api_data.json().get("messageId")},
+                                get_imageUrl = requests.get(url=self.call_back_url, params={"id": api_data.json().get("messageId")},
                                                             timeout=30.05)
                         logger.info("[RP] get_imageUrl={}".format(get_imageUrl.text))
-                        if "imageUrl" in get_imageUrl.json().keys():
+                        if "imageUrl" in get_imageUrl.text:
                             reply.type = ReplyType.IMAGE_URL
                             reply.content = get_imageUrl.json().get("imageUrl")
                         else:
