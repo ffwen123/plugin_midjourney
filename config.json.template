@@ -1,6 +1,7 @@
 {
   "api_url": "Midjourney API URL",
   "call_back_url": "Webhook的回调URL",
+  "no_get_response": "call_back_url没有查到结果，返回的自定义如：0 结果",
   "headers": {
     "Authorization": "Bearer <你的API 密钥>",
     "Content-Type": "application/json"

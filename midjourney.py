@@ -35,6 +35,7 @@ class Midjourney(Plugin):
                 config = json.load(f)
                 self.api_url = config["api_url"]
                 self.call_back_url = config["call_back_url"]
+                self.no_get_response = config["no_get_response"]
                 self.headers = config["headers"]
                 self.default_params = config["defaults"]
                 self.rules = config["rules"]
@@ -98,20 +99,28 @@ class Midjourney(Plugin):
                     "ref": self.slash_commands_data.get("ref", "relax"),
                     "msg": params["prompt"]
                 }}
+                logger.info("[RP] post_json={}".format(post_json))
                 # 调用midjourney api来画图
-                api_data = requests.post(url=self.api_url, headers=self.headers, json=post_json, timeout=120.05)
+                api_data = requests.post(url=self.api_url, headers=self.headers, json=post_json, timeout=30.05)
                 if api_data.status_code != 200:
                     time.sleep(2)
-                    api_data = requests.post(url=self.api_url, headers=self.headers, json=post_json, timeout=120.05)
+                    api_data = requests.post(url=self.api_url, headers=self.headers, json=post_json, timeout=30.05)
                 if api_data.status_code == 200:
                     # 调用Webhook URL的响应，来获取图片的URL
+                    logger.info("[RP] api_data={}".format(api_data.json()))
                     get_imageUrl = requests.get(url=self.call_back_url, data={"id": api_data.json().get("messageId")},
-                                                timeout=120.05)
-                    if get_imageUrl.status_code != 200:
-                        time.sleep(2)
-                        get_imageUrl = requests.get(url=self.call_back_url,
-                                                    data={"id": api_data.json().get("messageId")}, timeout=120.05)
+                                                timeout=30.05)
+                    # Webhook URL的响应慢，没隔 3 秒获取一次，超时60秒判断没有结果
                     if get_imageUrl.status_code == 200:
+                        if get_imageUrl.text == self.no_get_response:
+                            out_time = time.time()
+                            while get_imageUrl.text == self.no_get_response:
+                                if time.time() - out_time > 60:
+                                    break
+                                time.sleep(3)
+                                get_imageUrl = requests.get(url=self.call_back_url, data={"id": api_data.json().get("messageId")},
+                                                            timeout=30.05)
+                        logger.info("[RP] get_imageUrl={}".format(get_imageUrl.text))
                         if "imageUrl" in get_imageUrl.text:
                             reply.type = ReplyType.IMAGE_URL
                             reply.content = get_imageUrl.json().get("imageUrl")
