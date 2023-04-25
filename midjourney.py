@@ -38,7 +38,6 @@ class Midjourney(Plugin):
                 self.no_get_response = config["no_get_response"]
                 self.headers = config["headers"]
                 self.default_params = config["defaults"]
-                self.rules = config["rules"]
                 self.slash_commands_data = config["slash_commands_data"]
                 self.mj_api_key = self.headers.get("Authorization", "")
                 if "你的API 密钥" in self.mj_api_key or not self.mj_api_key:
@@ -61,7 +60,6 @@ class Midjourney(Plugin):
         logger.info("[RP] image_query={}".format(e_context['context'].content))
         reply = Reply()
         try:
-            # user_id = e_context['context']["session_id"]
             content = e_context['context'].content[:]
             # 解析用户输入 如":cat"
             content = content.replace("，", ",").replace("：", ":")
@@ -76,19 +74,10 @@ class Midjourney(Plugin):
                 reply.type = ReplyType.INFO
                 reply.content = self.get_help_text(verbose=True)
             else:
-                rule_params = {}
                 for keyword in keywords:
-                    matched = False
-                    for rule in self.rules:
-                        if keyword in rule["keywords"]:
-                            for key in rule["params"]:
-                                rule_params[key] = rule["params"][key]
-                            matched = True
-                            break  # 一个关键词只匹配一个规则
-                    if not matched:
-                        unused_keywords.append(keyword)
-                        logger.info("[RP] keyword not matched: %s, add to prompt" % keyword)
-                params = {**self.default_params, **rule_params}
+                    unused_keywords.append(keyword)
+                    logger.info("[RP] keyword not matched: %s, add to prompt" % keyword)
+                params = {**self.default_params}
                 params["prompt"] = params.get("prompt", "")
                 if prompt:
                     params["prompt"] += f", {prompt}"
@@ -117,7 +106,6 @@ class Midjourney(Plugin):
                             while get_imageUrl.text == self.no_get_response:
                                 if time.time() - out_time > 60:
                                     break
-                                print(time.time() - out_time, api_data.json().get("messageId"))
                                 time.sleep(3)
                                 get_imageUrl = requests.get(url=self.call_back_url, params={"id": api_data.json().get("messageId")},
                                                             timeout=30.05)
