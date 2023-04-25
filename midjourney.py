@@ -66,23 +66,23 @@ class Midjourney(Plugin):
             if ":" in content:
                 keywords, prompt = content.split(":", 1)
             else:
-                keywords = content
-                prompt = ""
-            keywords = keywords.split()
-            unused_keywords = []
+                keywords = ""
+                prompt = content
+            # keywords = keywords.split()
+            # unused_keywords = []
             if "help" in keywords or "帮助" in keywords:
                 reply.type = ReplyType.INFO
                 reply.content = self.get_help_text(verbose=True)
             else:
-                for keyword in keywords:
-                    unused_keywords.append(keyword)
-                    logger.info("[RP] keyword not matched: %s, add to prompt" % keyword)
-                params = {**self.default_params}
-                params["prompt"] = params.get("prompt", "")
+                # for keyword in keywords:
+                #     unused_keywords.append(keyword)
+                #     logger.info("[RP] keyword not matched: %s, add to prompt" % keyword)
+                params = {**self.slash_commands_data}
+                # params["prompt"] = params.get("prompt", "")
                 if prompt:
                     params["prompt"] += f", {prompt}"
-                if unused_keywords:
-                    params["prompt"] += f", {', '.join(unused_keywords)}"
+                # if unused_keywords:
+                #     params["prompt"] += f", {', '.join(unused_keywords)}"
                 logger.info("[RP] params={}".format(params))
                 post_json = {**self.default_params, **{
                     "cmd": self.slash_commands_data.get("cmd", "imagine"),
