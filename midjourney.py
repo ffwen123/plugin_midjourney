@@ -19,7 +19,8 @@ from common.log import logger
 from common.expired_dict import ExpiredDict
 
 
-@plugins.register(name="Midjourney", desc="利用midjourney api来画图", version="0.1", author="ffwen123")
+@plugins.register(name="Midjourney", desc="利用midjourney api来画图", desire_priority=1, version="0.1",
+                  author="ffwen123")
 class Midjourney(Plugin):
     def __init__(self):
         super().__init__()
@@ -82,10 +83,12 @@ class Midjourney(Plugin):
                     api_data = requests.post(url=self.api_url, headers=self.headers, json=post_json, timeout=120.05)
                 if api_data.status_code == 200:
                     # 调用Webhook URL的响应，来获取图片的URL
-                    get_imageUrl = requests.get(url=self.call_back_url, data={"id": api_data.json().get("messageId")}, timeout=120.05)
+                    get_imageUrl = requests.get(url=self.call_back_url, data={"id": api_data.json().get("messageId")},
+                                                timeout=120.05)
                     if get_imageUrl.status_code != 200:
                         time.sleep(2)
-                        get_imageUrl = requests.get(url=self.call_back_url, data={"id": api_data.json().get("messageId")}, timeout=120.05)
+                        get_imageUrl = requests.get(url=self.call_back_url,
+                                                    data={"id": api_data.json().get("messageId")}, timeout=120.05)
                     if get_imageUrl.status_code == 200:
                         if "imageUrl" in get_imageUrl.text:
                             reply.type = ReplyType.IMAGE_URL
