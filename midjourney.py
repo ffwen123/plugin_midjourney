@@ -97,7 +97,6 @@ class Midjourney(Plugin):
                 logger.info("[RP] params={}".format(params))
                 post_json = {**self.default_params, **{
                     "cmd": self.slash_commands_data.get("cmd", "imagine"),
-                    "ref": self.slash_commands_data.get("ref", "relax"),
                     "msg": params["prompt"]
                 }}
                 logger.info("[RP] post_json={}".format(post_json))
@@ -122,7 +121,7 @@ class Midjourney(Plugin):
                                 get_imageUrl = requests.get(url=self.call_back_url, data={"id": api_data.json().get("messageId")},
                                                             timeout=30.05)
                         logger.info("[RP] get_imageUrl={}".format(get_imageUrl.text))
-                        if "imageUrl" in get_imageUrl.text:
+                        if "imageUrl" in get_imageUrl.json().keys():
                             reply.type = ReplyType.IMAGE_URL
                             reply.content = get_imageUrl.json().get("imageUrl")
                         else:
