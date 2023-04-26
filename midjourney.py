@@ -19,8 +19,7 @@ from common.log import logger
 from common.expired_dict import ExpiredDict
 
 
-@plugins.register(name="Midjourney", desc="利用midjourney api来画图", desire_priority=1, version="0.1",
-                  author="ffwen123")
+@plugins.register(name="Midjourney", desc="用midjourney api来画图", desire_priority=1, version="0.1", author="ffwen123")
 class Midjourney(Plugin):
     def __init__(self):
         super().__init__()
@@ -66,26 +65,23 @@ class Midjourney(Plugin):
             if ":" in content:
                 keywords, prompt = content.split(":", 1)
             else:
-                keywords = ""
-                prompt = content
-            # keywords = keywords.split()
-            # unused_keywords = []
+                keywords = content
+                prompt = ""
             if "help" in keywords or "帮助" in keywords:
                 reply.type = ReplyType.INFO
                 reply.content = self.get_help_text(verbose=True)
             else:
-                # for keyword in keywords:
-                #     unused_keywords.append(keyword)
-                #     logger.info("[RP] keyword not matched: %s, add to prompt" % keyword)
                 params = {**self.slash_commands_data}
-                # params["prompt"] = params.get("prompt", "")
                 if prompt:
                     if params.get("prompt", ""):
                         params["prompt"] += f", {prompt}"
                     else:
                         params["prompt"] += f"{prompt}"
-                # if unused_keywords:
-                #     params["prompt"] += f", {', '.join(unused_keywords)}"
+                if keywords:
+                    if params.get("prompt", ""):
+                        params["prompt"] += f", {keywords}"
+                    else:
+                        params["prompt"] += f"{keywords}"
                 logger.info("[RP] params={}".format(params))
                 post_json = {**self.default_params, **{
                     "cmd": self.slash_commands_data.get("cmd", "imagine"),
@@ -99,10 +95,10 @@ class Midjourney(Plugin):
                     api_data = requests.post(url=self.api_url, headers=self.headers, json=post_json, timeout=30.05)
                 if api_data.status_code == 200:
                     # 调用Webhook URL的响应，来获取图片的URL
+                    messageId = api_data.json().get("messageId")
                     logger.info("[RP] api_data={}".format(api_data.json()))
-                    get_imageUrl = requests.get(url=self.call_back_url, params={"id": api_data.json().get("messageId")},
-                                                timeout=30.05)
-                    # Webhook URL的响应慢，没隔 5 秒获取一次，超时60秒判断没有结果
+                    get_imageUrl = requests.get(url=self.call_back_url, params={"id": messageId}, timeout=30.05)
+                    # Webhook URL的响应慢，没隔 5 秒获取一次，超过600秒判断没有结果
                     if get_imageUrl.status_code == 200:
                         if get_imageUrl.text == self.no_get_response:
                             out_time = time.time()
@@ -110,8 +106,7 @@ class Midjourney(Plugin):
                                 if time.time() - out_time > 600:
                                     break
                                 time.sleep(5)
-                                get_imageUrl = requests.get(url=self.call_back_url, params={"id": api_data.json().get("messageId")},
-                                                            timeout=30.05)
+                                get_imageUrl = requests.get(url=self.call_back_url, params={"id": messageId}, timeout=30.05)
                         logger.info("[RP] get_imageUrl={}".format(get_imageUrl.text))
                         if "imageUrl" in get_imageUrl.text:
                             reply.type = ReplyType.IMAGE_URL
@@ -149,13 +144,13 @@ class Midjourney(Plugin):
         if not verbose:
             return help_text
 
-        help_text += f"使用方法:\n使用\"{trigger}:提示语\"的格式作画，如\"{trigger}:girl\"\n"
-        help_text += "目前可用关键词：\n"
-        for rule in self.rules:
-            keywords = [f"[{keyword}]" for keyword in rule['keywords']]
-            help_text += f"{','.join(keywords)}"
-            if "desc" in rule:
-                help_text += f"-{rule['desc']}\n"
-            else:
-                help_text += "\n"
+        help_text += f"使用方法:\n使用\"{trigger}[关键词1] [关键词2]...:提示语\"的格式作画，如\"{trigger}二次元:girl\"\n"
+        # help_text += "目前可用关键词：\n"
+        # for rule in self.rules:
+        #     keywords = [f"[{keyword}]" for keyword in rule['keywords']]
+        #     help_text += f"{','.join(keywords)}"
+        #     if "desc" in rule:
+        #         help_text += f"-{rule['desc']}\n"
+        #     else:
+        #         help_text += "\n"
         return help_text
