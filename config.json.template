@@ -2,6 +2,14 @@
   "api_url": "Midjourney API URL",
   "call_back_url": "Webhook的回调URL",
   "no_get_response": "call_back_url没有查到结果，返回的自定义如：0 结果",
+  "oss_conf": {
+    "akid": "AccessKey ID",
+    "akst": "AccessKey Secret",
+    "aked": "https://oss-cn-hangzhou.aliyuncs.com",
+    "image_url": "oss的连接{}",
+    "image_addre": "oss的图片文件夹，可以设置有效期",
+    "bucket_name": "bucket_name"
+  },
   "headers": {
     "Authorization": "Bearer <你的API 密钥>",
     "Content-Type": "application/json"
@@ -31,5 +39,8 @@
         "V4"
     ]",
     "buttonMessageId": "buttonMessageId在Midjourney API实际响应数据里"
+  },
+  "rule": {
+    "image": "[修图]，触发图生图"
   }
 }

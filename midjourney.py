@@ -7,9 +7,11 @@
 """
 import json
 import os
+import random
+import string
 import time
-
 import requests
+import oss2
 from bridge.context import ContextType
 from bridge.reply import Reply, ReplyType
 from config import conf
@@ -35,12 +37,16 @@ class Midjourney(Plugin):
                 self.api_url = config["api_url"]
                 self.call_back_url = config["call_back_url"]
                 self.no_get_response = config["no_get_response"]
+                self.rule = config["rule"]
+                self.oss_conf = config["oss_conf"]
+                auth = oss2.Auth(self.oss_conf["akid"], self.oss_conf["akst"])
+                self.bucket_img = oss2.Bucket(auth, self.oss_conf["aked"], self.oss_conf["bucket_name"])
                 self.headers = config["headers"]
                 self.default_params = config["defaults"]
                 self.slash_commands_data = config["slash_commands_data"]
                 self.mj_api_key = self.headers.get("Authorization", "")
-                if "你的API 密钥" in self.mj_api_key or not self.mj_api_key:
-                    raise Exception("please set your api key in config or environment variable.")
+                if not self.mj_api_key or "你的API 密钥" in self.mj_api_key:
+                    raise Exception("please set your Midjourney api key in config or environment variable.")
             self.handlers[Event.ON_HANDLE_CONTEXT] = self.on_handle_context
             logger.info("[RP] inited")
         except Exception as e:
@@ -52,82 +58,101 @@ class Midjourney(Plugin):
 
     def on_handle_context(self, e_context: EventContext):
 
-        if e_context['context'].type != ContextType.IMAGE_CREATE:
+        if e_context['context'].type not in [ContextType.IMAGE_CREATE, ContextType.IMAGE]:
             return
         logger.debug("[RP] on_handle_context. content: %s" % e_context['context'].content)
-
+        try:
+            logger.info("[RP] image_test={}".format(e_context['context']))
+        except:
+            pass
         logger.info("[RP] image_query={}".format(e_context['context'].content))
         reply = Reply()
         try:
+            user_id = e_context['context']["session_id"]
             content = e_context['context'].content[:]
-            # 解析用户输入 如":cat"
-            content = content.replace("，", ",").replace("：", ":")
-            if ":" in content:
-                keywords, prompt = content.split(":", 1)
-            else:
-                keywords = content
-                prompt = ""
-            if "help" in keywords or "帮助" in keywords:
-                reply.type = ReplyType.INFO
-                reply.content = self.get_help_text(verbose=True)
-            else:
-                params = {**self.slash_commands_data}
-                if prompt:
-                    if params.get("prompt", ""):
-                        params["prompt"] += f", {prompt}"
+            if e_context['context'].type == ContextType.IMAGE_CREATE:
+                # 解析用户输入 如":cat"
+                content = content.replace("，", ",").replace("：", ":")
+                if ":" in content:
+                    keywords, prompt = content.split(":", 1)
+                else:
+                    keywords = content
+                    prompt = ""
+                if "help" in keywords or "帮助" in keywords:
+                    reply.type = ReplyType.INFO
+                    reply.content = self.get_help_text(verbose=True)
+                else:
+                    params = {**self.slash_commands_data}
+                    if prompt:
+                        if len(prompt) > 250:
+                            prompt = prompt[:250]
+                        if params.get("prompt", ""):
+                            params["prompt"] += f", {prompt}"
+                        else:
+                            params["prompt"] += f"{prompt}"
+                    if keywords:
+                        if len(keywords) > 250:
+                            keywords = keywords[:250]
+                        if params.get("prompt", ""):
+                            params["prompt"] += f", {keywords}"
+                        else:
+                            params["prompt"] += f"{keywords}"
+                    logger.info("[RP] params={}".format(params))
+                    if self.rule.get("image") in params["prompt"]:
+                        # params["prompt"] = params["prompt"].replace(self.rule.get("image"), "")
+                        self.params_cache[user_id] = params
+                        reply.type = ReplyType.INFO
+                        reply.content = "请发送一张图片给我"
                     else:
-                        params["prompt"] += f"{prompt}"
-                if keywords:
-                    if params.get("prompt", ""):
-                        params["prompt"] += f", {keywords}"
-                    else:
-                        params["prompt"] += f"{keywords}"
-                logger.info("[RP] params={}".format(params))
-                post_json = {**self.default_params, **{
-                    "cmd": self.slash_commands_data.get("cmd", "imagine"),
-                    "msg": params["prompt"]
-                }}
-                logger.info("[RP] post_json={}".format(post_json))
-                # 调用midjourney api来画图
-                api_data = requests.post(url=self.api_url, headers=self.headers, json=post_json, timeout=30.05)
-                if api_data.status_code != 200:
-                    time.sleep(2)
-                    api_data = requests.post(url=self.api_url, headers=self.headers, json=post_json, timeout=30.05)
-                if api_data.status_code == 200:
-                    # 调用Webhook URL的响应，来获取图片的URL
-                    messageId = api_data.json().get("messageId")
-                    logger.info("[RP] api_data={}".format(api_data.json()))
-                    get_imageUrl = requests.get(url=self.call_back_url, params={"id": messageId}, timeout=30.05)
-                    # Webhook URL的响应慢，没隔 5 秒获取一次，超过600秒判断没有结果
-                    if get_imageUrl.status_code == 200:
-                        if get_imageUrl.text == self.no_get_response:
-                            out_time = time.time()
-                            while get_imageUrl.text == self.no_get_response:
-                                if time.time() - out_time > 600:
-                                    break
-                                time.sleep(5)
-                                get_imageUrl = requests.get(url=self.call_back_url, params={"id": messageId}, timeout=30.05)
-                        logger.info("[RP] get_imageUrl={}".format(get_imageUrl.text))
-                        if "imageUrl" in get_imageUrl.text:
+                        post_json = {**self.default_params, **{
+                            "cmd": self.slash_commands_data.get("cmd", "imagine"),
+                            "msg": params["prompt"]
+                        }}
+                        logger.info("[RP] txt2img post_json={}".format(post_json))
+                        # 调用midjourney api来画图
+                        http_resp, messageId = self.get_imageurl(url=self.api_url, data=post_json)
+                        if messageId:
                             reply.type = ReplyType.IMAGE_URL
-                            reply.content = get_imageUrl.json().get("imageUrl")
+                            reply.content = http_resp.get("imageUrl")
                         else:
                             reply.type = ReplyType.ERROR
-                            reply.content = get_imageUrl.text
-                        e_context.action = EventAction.BREAK_PASS  # 事件结束后，跳过处理context的默认逻辑，下同
-                        e_context['reply'] = reply
+                            reply.content = http_resp
+                            e_context['reply'] = reply
+                            logger.error("[RP] Midjourney API api_data: %s " % http_resp)
+                    e_context.action = EventAction.BREAK_PASS  # 事件结束后，跳过处理context的默认逻辑，下同
+                    e_context['reply'] = reply
+            else:
+                if user_id in self.params_cache:
+                    params = self.params_cache[user_id]
+                    del self.params_cache[user_id]
+                    img_data = open(content, "rb")
+                    rand_str = "".join(random.sample(string.ascii_letters + string.digits, 8))
+                    num_str = str(random.uniform(1, 10)).split(".")[-1]
+                    filename = f"{rand_str}_{num_str}"
+                    oss_imgurl = self.put_oss_image(filename, img_data)
+                    if oss_imgurl:
+                        post_json = {**self.default_params, **{
+                            "cmd": self.slash_commands_data.get("cmd", "imagine"),
+                            "msg": f'''"cmd":"{oss_imgurl} {params["prompt"]}"'''
+                        }}
+                        logger.info("[RP] img2img post_json={}".format(post_json))
+                        # 调用midjourney api图生图
+                        http_resp, messageId = self.get_imageurl(url=self.api_url, data=post_json)
+                        if messageId:
+                            reply.type = ReplyType.IMAGE_URL
+                            reply.content = http_resp.get("imageUrl")
+                        else:
+                            reply.type = ReplyType.ERROR
+                            reply.content = http_resp
+                            e_context['reply'] = reply
+                            logger.error("[RP] Midjourney API api_data: %s " % http_resp)
                     else:
                         reply.type = ReplyType.ERROR
-                        reply.content = "图片URL获取失败"
+                        reply.content = oss_imgurl
                         e_context['reply'] = reply
-                        logger.error("[RP] get_imageUrl: %s " % get_imageUrl.text)
-                        e_context.action = EventAction.BREAK_PASS
-                else:
-                    reply.type = ReplyType.ERROR
-                    reply.content = "画图失败"
+                        logger.error("[RP] oss2 image result: %s " % oss_imgurl)
                     e_context['reply'] = reply
-                    logger.error("[RP] Midjourney API api_data: %s " % api_data.text)
-                    e_context.action = EventAction.BREAK_PASS
+                    e_context.action = EventAction.BREAK_PASS  # 事件结束后，跳过处理context的默认逻辑
         except Exception as e:
             reply.type = ReplyType.ERROR
             reply.content = "[RP] " + str(e)
@@ -154,3 +179,45 @@ class Midjourney(Plugin):
         #     else:
         #         help_text += "\n"
         return help_text
+
+    def get_imageurl(self, url, data):
+        api_data = requests.post(url=url, headers=self.headers, json=data, timeout=30.05)
+        if api_data.status_code != 200:
+            time.sleep(2)
+            api_data = requests.post(url=self.api_url, headers=self.headers, json=data, timeout=30.05)
+        if api_data.status_code == 200:
+            # 调用Webhook URL的响应，来获取图片的URL
+            messageId = api_data.json().get("messageId")
+            logger.info("[RP] api_data={}".format(api_data.json()))
+            get_resp = requests.get(url=self.call_back_url, params={"id": messageId}, timeout=30.05)
+            # Webhook URL的响应慢，没隔 5 秒获取一次，超过600秒判断没有结果
+            if get_resp.status_code == 200:
+                if get_resp.text == self.no_get_response:
+                    out_time = time.time()
+                    while get_resp.text == self.no_get_response:
+                        if time.time() - out_time > 600:
+                            break
+                        time.sleep(5)
+                        get_resp = requests.get(url=self.call_back_url, params={"id": messageId}, timeout=30.05)
+                logger.info("[RP] get_imageUrl={}".format(get_resp.text))
+                if "imageUrl" in get_resp.text:
+                    return get_resp.json(), messageId
+                else:
+                    return get_resp.text, None
+            else:
+                return "图片URL获取失败", None
+        else:
+            return api_data.text, None
+
+    def put_oss_image(self, data_name, img_bytes):
+        try:
+            _result = self.bucket_img.put_object(self.oss_conf["image_addre"] + data_name, img_bytes)
+        except Exception as e:
+            print(e)
+            try:
+                time.sleep(3)
+                _result = self.bucket_img.put_object(self.oss_conf["image_addre"] + data_name, img_bytes)
+            except Exception as e:
+                return None
+        print("_result: ", _result)
+        return self.oss_conf["image_url"].format(data_name)
