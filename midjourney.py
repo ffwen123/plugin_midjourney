@@ -130,7 +130,7 @@ class Midjourney(Plugin):
                     img_data = open(content, "rb")
                     rand_str = "".join(random.sample(string.ascii_letters + string.digits, 8))
                     num_str = str(random.uniform(1, 10)).split(".")[-1]
-                    filename = f"{rand_str}_{num_str}"
+                    filename = f"{rand_str}_{num_str}" + ".png"
                     oss_imgurl = self.put_oss_image(filename, img_data)
                     if oss_imgurl:
                         post_json = {**self.default_params, **{
@@ -152,7 +152,7 @@ class Midjourney(Plugin):
                         reply.type = ReplyType.ERROR
                         reply.content = "oss上传图片失败"
                         e_context['reply'] = reply
-                        logger.error("[RP] oss2 image result: oss上传图片失败 ")
+                        logger.error("[RP] oss2 image result: oss上传图片失败")
                     e_context['reply'] = reply
                     e_context.action = EventAction.BREAK_PASS  # 事件结束后，跳过处理context的默认逻辑
         except Exception as e:
