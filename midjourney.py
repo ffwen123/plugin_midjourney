@@ -99,7 +99,7 @@ class Midjourney(Plugin):
                             params["prompt"] += f"{keywords}"
                     logger.info("[RP] params={}".format(params))
                     if self.rule.get("image") in params["prompt"]:
-                        # params["prompt"] = params["prompt"].replace(self.rule.get("image"), "")
+                        params["prompt"] = params["prompt"].replace(self.rule.get("image"), "")
                         self.params_cache[user_id] = params
                         reply.type = ReplyType.INFO
                         reply.content = "请发送一张图片给我"
@@ -122,9 +122,11 @@ class Midjourney(Plugin):
                     e_context.action = EventAction.BREAK_PASS  # 事件结束后，跳过处理context的默认逻辑，下同
                     e_context['reply'] = reply
             else:
+                cmsg = e_context['context']['msg']
                 if user_id in self.params_cache:
                     params = self.params_cache[user_id]
                     del self.params_cache[user_id]
+                    cmsg.prepare()
                     img_data = open(content, "rb")
                     rand_str = "".join(random.sample(string.ascii_letters + string.digits, 8))
                     num_str = str(random.uniform(1, 10)).split(".")[-1]
