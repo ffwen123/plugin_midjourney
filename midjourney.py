@@ -14,6 +14,8 @@ import requests
 import oss2
 from bridge.context import ContextType
 from bridge.reply import Reply, ReplyType
+from bridge.bridge import Bridge
+from translate.factory import create_translator
 from config import conf
 import plugins
 from plugins import *
@@ -28,6 +30,7 @@ class Midjourney(Plugin):
         curdir = os.path.dirname(__file__)
         config_path = os.path.join(curdir, "config.json")
         self.params_cache = ExpiredDict(60 * 60)
+        self.translate = create_translator("baidu")
         if not os.path.exists(config_path):
             logger.info('[RP] 配置文件不存在，将使用config.json.template模板')
             config_path = os.path.join(curdir, "config.json.template")
@@ -84,26 +87,25 @@ class Midjourney(Plugin):
                 else:
                     params = {**self.slash_commands_data}
                     if prompt:
-                        if len(prompt) > 250:
-                            prompt = prompt[:250]
                         if params.get("prompt", ""):
                             params["prompt"] += f", {prompt}"
                         else:
                             params["prompt"] += f"{prompt}"
                     if keywords:
-                        if len(keywords) > 250:
-                            keywords = keywords[:250]
                         if params.get("prompt", ""):
                             params["prompt"] += f", {keywords}"
                         else:
                             params["prompt"] += f"{keywords}"
                     logger.info("[RP] params={}".format(params))
                     if self.rule.get("image") in params["prompt"]:
-                        params["prompt"] = params["prompt"].replace(self.rule.get("image"), "")
+                        params["prompt"] = self.translate.translate(params["prompt"].replace(self.rule.get("image"), ""), to_lang="en")
                         self.params_cache[user_id] = params
                         reply.type = ReplyType.INFO
                         reply.content = "请发送一张图片给我"
                     else:
+                        params["prompt"] = self.translate.translate(params["prompt"], to_lang="en")
+                        if len(params["prompt"]) > 250:
+                            params["prompt"] = params["prompt"][:250]
                         post_json = {**self.default_params, **{
                             "cmd": self.slash_commands_data.get("cmd", "imagine"),
                             "msg": params["prompt"]
