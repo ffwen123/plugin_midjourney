@@ -62,7 +62,7 @@ class Midjourney(Plugin):
             return
         logger.debug("[RP] on_handle_context. content: %s" % e_context['context'].content)
         try:
-            logger.info("[RP] image_test={}".format(e_context['context']))
+            logger.info("[RP] image_test={}".format(str(e_context['context'])))
         except:
             pass
         logger.info("[RP] image_query={}".format(e_context['context'].content))
@@ -150,9 +150,9 @@ class Midjourney(Plugin):
                             logger.error("[RP] Midjourney API api_data: %s " % http_resp)
                     else:
                         reply.type = ReplyType.ERROR
-                        reply.content = oss_imgurl
+                        reply.content = "oss上传图片失败"
                         e_context['reply'] = reply
-                        logger.error("[RP] oss2 image result: %s " % oss_imgurl)
+                        logger.error("[RP] oss2 image result: oss上传图片失败 ")
                     e_context['reply'] = reply
                     e_context.action = EventAction.BREAK_PASS  # 事件结束后，跳过处理context的默认逻辑
         except Exception as e:
