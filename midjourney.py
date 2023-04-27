@@ -96,12 +96,21 @@ class Midjourney(Plugin):
                             params["prompt"] += f"{keywords}"
                     logger.info("[RP] params={}".format(params))
                     if self.rule.get("image") in params["prompt"]:
-                        params["prompt"] = Bridge().fetch_translate(params["prompt"].replace(self.rule.get("image"), ""), to_lang="en")
+                        temp = params["prompt"].replace(self.rule.get("image"), "")
+                        if temp.find("--"):
+                            p, m = temp.split("--", 1)
+                            params["prompt"] = Bridge().fetch_translate(p, to_lang="en") + " --" + m
+                        else:
+                            params["prompt"] = Bridge().fetch_translate(temp, to_lang="en")
                         self.params_cache[user_id] = params
                         reply.type = ReplyType.INFO
                         reply.content = "请发送一张图片给我"
                     else:
-                        params["prompt"] = Bridge().fetch_translate(params["prompt"], to_lang="en")
+                        if params["prompt"].find("--"):
+                            p, m = params["prompt"].split("--", 1)
+                            params["prompt"] = Bridge().fetch_translate(p, to_lang="en") + " --" + m
+                        else:
+                            params["prompt"] = Bridge().fetch_translate(params["prompt"], to_lang="en")
                         if len(params["prompt"]) > 250:
                             params["prompt"] = params["prompt"][:250]
                         post_json = {**self.default_params, **{
@@ -119,7 +128,7 @@ class Midjourney(Plugin):
                             reply.content = http_resp
                             e_context['reply'] = reply
                             logger.error("[RP] Midjourney API api_data: %s " % http_resp)
-                    e_context.action = EventAction.BREAK_PASS  # 事件结束后，跳过处理context的默认逻辑，下同
+                    e_context.action = EventAction.BREAK_PASS  # 事件结束后，跳过处理context的默认逻辑
                     e_context['reply'] = reply
             else:
                 cmsg = e_context['context']['msg']
