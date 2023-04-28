@@ -81,12 +81,14 @@ class Midjourney(Plugin):
             content = e_context['context'].content[:]
             if e_context['context'].type == ContextType.IMAGE_CREATE:
                 # 解析用户输入 如"mj [img2img] prompt --v 5 --ar 3:2"
+                if content.find("—") >= 0:
+                    content = content.replace("—", "--")
                 if content.find("--") >= 0:
                     prompt, commands = content.split("--", 1)
                     commands = " --" + commands
-                elif content.find("—") >= 0:
-                    prompt, commands = content.split("—", 1)
-                    commands = " —" + commands
+                # elif content.find("—") >= 0:
+                #     prompt, commands = content.split("—", 1)
+                #     commands = " —" + commands
                 else:
                     prompt, commands = content, ""
                 if "help" in content or "帮助" in content:
@@ -122,8 +124,12 @@ class Midjourney(Plugin):
                         # 调用midjourney api来画图
                         http_resp, messageId = self.get_imageurl(url=self.api_url, data=post_json)
                         if messageId:
-                            reply.type = ReplyType.IMAGE_URL
-                            reply.content = http_resp.get("imageUrl")
+                            if http_resp.get("imageUrl"):
+                                reply.type = ReplyType.IMAGE_URL
+                                reply.content = http_resp.get("imageUrl")
+                            else:
+                                reply.type = ReplyType.ERROR
+                                reply.content = "图片imageUrl为空"
                         else:
                             reply.type = ReplyType.ERROR
                             reply.content = http_resp
