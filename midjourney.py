@@ -81,10 +81,10 @@ class Midjourney(Plugin):
             content = e_context['context'].content[:]
             if e_context['context'].type == ContextType.IMAGE_CREATE:
                 # 解析用户输入 如"mj [img2img] prompt --v 5 --ar 3:2"
-                if content.find("--"):
+                if content.find("--") >= 0:
                     prompt, commands = content.split("--", 1)
                     commands = " --" + commands
-                elif content.find("—"):
+                elif content.find("—") >= 0:
                     prompt, commands = content.split("—", 1)
                     commands = " —" + commands
                 else:
@@ -93,6 +93,10 @@ class Midjourney(Plugin):
                     reply.type = ReplyType.INFO
                     reply.content = self.get_help_text(verbose=True)
                 else:
+                    flag = False
+                    if self.rule.get("image") in prompt:
+                        flag = True
+                        prompt = prompt.replace(self.rule.get("image"))
                     if is_chinese(prompt):
                         prompt = Bridge().fetch_translate(prompt, to_lang="en")
                     if len(prompt) > 250:
@@ -105,8 +109,7 @@ class Midjourney(Plugin):
                     else:
                         params["prompt"] += f"{prompt}"
                     logger.info("[RP] params={}".format(params))
-                    if self.rule.get("image") in params["prompt"]:
-                        params["prompt"] = params["prompt"].replace(self.rule.get("image"))
+                    if flag:
                         self.params_cache[user_id] = params
                         reply.type = ReplyType.INFO
                         reply.content = "请发送一张图片给我"
