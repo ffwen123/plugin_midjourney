@@ -10,6 +10,7 @@ import os
 import random
 import string
 import time
+import unicodedata
 import requests
 import oss2
 from bridge.context import ContextType
@@ -20,6 +21,13 @@ import plugins
 from plugins import *
 from common.log import logger
 from common.expired_dict import ExpiredDict
+
+
+def is_chinese(prompt):
+    for char in prompt:
+        if "CJK" in unicodedata.name(char):
+            return True
+    return False
 
 
 @plugins.register(name="Midjourney", desc="用midjourney api来画图", desire_priority=1, version="0.1", author="ffwen123")
@@ -72,47 +80,37 @@ class Midjourney(Plugin):
             user_id = e_context['context']["session_id"]
             content = e_context['context'].content[:]
             if e_context['context'].type == ContextType.IMAGE_CREATE:
-                # 解析用户输入 如":cat"
-                content = content.replace("，", ",").replace("：", ":")
-                if ":" in content:
-                    keywords, prompt = content.split(":", 1)
+                # 解析用户输入 如"mj [img2img] prompt --v 5 --ar 3:2"
+                if content.find("--"):
+                    prompt, commands = content.split("--", 1)
+                    commands = " --" + commands
+                elif content.find("—"):
+                    prompt, commands = content.split("—", 1)
+                    commands = " —" + commands
                 else:
-                    keywords = content
-                    prompt = ""
-                if "help" in keywords or "帮助" in keywords:
+                    prompt, commands = content, ""
+                if "help" in content or "帮助" in content:
                     reply.type = ReplyType.INFO
                     reply.content = self.get_help_text(verbose=True)
                 else:
+                    if is_chinese(prompt):
+                        prompt = Bridge().fetch_translate(prompt, to_lang="en")
+                    if len(prompt) > 250:
+                        prompt = prompt[:250] + commands
+                    else:
+                        prompt += commands
                     params = {**self.slash_commands_data}
-                    if prompt:
-                        if params.get("prompt", ""):
-                            params["prompt"] += f", {prompt}"
-                        else:
-                            params["prompt"] += f"{prompt}"
-                    if keywords:
-                        if params.get("prompt", ""):
-                            params["prompt"] += f", {keywords}"
-                        else:
-                            params["prompt"] += f"{keywords}"
+                    if params.get("prompt", ""):
+                        params["prompt"] += f", {prompt}"
+                    else:
+                        params["prompt"] += f"{prompt}"
                     logger.info("[RP] params={}".format(params))
                     if self.rule.get("image") in params["prompt"]:
-                        temp = params["prompt"].replace(self.rule.get("image"), "")
-                        if temp.find("--"):
-                            p, m = temp.split("--", 1)
-                            params["prompt"] = Bridge().fetch_translate(p, to_lang="en") + " --" + m
-                        else:
-                            params["prompt"] = Bridge().fetch_translate(temp, to_lang="en")
+                        params["prompt"] = params["prompt"].replace(self.rule.get("image"))
                         self.params_cache[user_id] = params
                         reply.type = ReplyType.INFO
                         reply.content = "请发送一张图片给我"
                     else:
-                        if params["prompt"].find("--"):
-                            p, m = params["prompt"].split("--", 1)
-                            params["prompt"] = Bridge().fetch_translate(p, to_lang="en") + " --" + m
-                        else:
-                            params["prompt"] = Bridge().fetch_translate(params["prompt"], to_lang="en")
-                        if len(params["prompt"]) > 250:
-                            params["prompt"] = params["prompt"][:250]
                         post_json = {**self.default_params, **{
                             "cmd": self.slash_commands_data.get("cmd", "imagine"),
                             "msg": params["prompt"]
