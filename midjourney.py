@@ -96,7 +96,7 @@ class Midjourney(Plugin):
                     flag = False
                     if self.rule.get("image") in prompt:
                         flag = True
-                        prompt = prompt.replace(self.rule.get("image"))
+                        prompt = prompt.replace(self.rule.get("image"), "")
                     if is_chinese(prompt):
                         prompt = Bridge().fetch_translate(prompt, to_lang="en")
                     if len(prompt) > 250:
