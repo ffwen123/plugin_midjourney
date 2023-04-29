@@ -100,9 +100,7 @@ class Midjourney(Plugin):
                         flag = True
                         prompt = prompt.replace(self.rule.get("image"), "")
                     if is_chinese(prompt):
-                        prompt = Bridge().fetch_translate(prompt, to_lang="en")
-                    if len(prompt) > 250:
-                        prompt = prompt[:250] + commands
+                        prompt = Bridge().fetch_translate(prompt, to_lang="en") + commands
                     else:
                         prompt += commands
                     params = {**self.slash_commands_data}
@@ -210,15 +208,15 @@ class Midjourney(Plugin):
             get_resp = requests.get(url=self.call_back_url, params={"id": messageId}, timeout=30.05)
             # Webhook URL的响应慢，没隔 5 秒获取一次，超过600秒判断没有结果
             if get_resp.status_code == 200:
-                if get_resp.text == self.no_get_response:
+                if get_resp.content.decode("utf-8") == self.no_get_response:
                     out_time = time.time()
-                    while get_resp.text == self.no_get_response:
+                    while get_resp.content.decode("utf-8") == self.no_get_response:
                         if time.time() - out_time > 600:
                             break
                         time.sleep(5)
                         get_resp = requests.get(url=self.call_back_url, params={"id": messageId}, timeout=30.05)
                 logger.info("[RP] get_imageUrl={}".format(get_resp.text))
-                if "imageUrl" in get_resp.text:
+                if "imageUrl" in get_resp.content.decode("utf-8"):
                     return get_resp.json(), messageId
                 else:
                     return get_resp.text, None
