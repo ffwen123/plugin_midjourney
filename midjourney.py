@@ -69,11 +69,7 @@ class Midjourney(Plugin):
 
         if e_context['context'].type not in [ContextType.IMAGE_CREATE, ContextType.IMAGE]:
             return
-        logger.debug("[RP] on_handle_context. content: %s" % e_context['context'].content)
-        try:
-            logger.info("[RP] image_test={}".format(str(e_context['context'])))
-        except:
-            pass
+
         logger.info("[RP] image_query={}".format(e_context['context'].content))
         reply = Reply()
         try:
@@ -86,9 +82,6 @@ class Midjourney(Plugin):
                 if content.find("--") >= 0:
                     prompt, commands = content.split("--", 1)
                     commands = " --" + commands
-                # elif content.find("—") >= 0:
-                #     prompt, commands = content.split("—", 1)
-                #     commands = " —" + commands
                 else:
                     prompt, commands = content, ""
                 if "help" in content or "帮助" in content:
@@ -155,8 +148,12 @@ class Midjourney(Plugin):
                         # 调用midjourney api图生图
                         http_resp, messageId = self.get_imageurl(url=self.api_url, data=post_json)
                         if messageId:
-                            reply.type = ReplyType.IMAGE_URL
-                            reply.content = http_resp.get("imageUrl")
+                            if http_resp.get("imageUrl"):
+                                reply.type = ReplyType.IMAGE_URL
+                                reply.content = http_resp.get("imageUrl")
+                            else:
+                                reply.type = ReplyType.ERROR
+                                reply.content = "图片imageUrl为空"
                         else:
                             reply.type = ReplyType.ERROR
                             reply.content = http_resp
@@ -184,16 +181,7 @@ class Midjourney(Plugin):
         help_text = "利用midjourney api来画图。\n"
         if not verbose:
             return help_text
-
         help_text += f"使用方法:\n使用\"{trigger}[关键词1] [关键词2]...:提示语\"的格式作画，如\"{trigger}二次元:girl\"\n"
-        # help_text += "目前可用关键词：\n"
-        # for rule in self.rules:
-        #     keywords = [f"[{keyword}]" for keyword in rule['keywords']]
-        #     help_text += f"{','.join(keywords)}"
-        #     if "desc" in rule:
-        #         help_text += f"-{rule['desc']}\n"
-        #     else:
-        #         help_text += "\n"
         return help_text
 
     def get_imageurl(self, url, data):
